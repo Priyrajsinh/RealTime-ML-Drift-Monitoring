@@ -102,9 +102,11 @@ def test_exceptions_raise():
 # --- stubs return None ---
 
 
-def test_load_credit_default_stub():
-    result = load_credit_default({})
-    assert result is None
+def test_load_credit_default_returns_tuple():
+    X, y = load_credit_default({})
+    assert isinstance(X, pd.DataFrame)
+    assert isinstance(y, pd.Series)
+    assert X.shape == (30000, 23)
 
 
 def test_train_model_stub():

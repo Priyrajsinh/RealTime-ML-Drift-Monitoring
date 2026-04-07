@@ -12,7 +12,13 @@ StatsSchema = DataFrameSchema(
         ),
         "min": Column(float),
         "max": Column(float),
-    }
+    },
+    checks=[
+        Check(
+            lambda df: (df["min"] <= df["max"]).all(),
+            error="min must be <= max",
+        ),
+    ],
 )
 
 
