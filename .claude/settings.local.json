@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -m black src/monitoring/drift_detector.py tests/test_drift_detector.py)",
+      "Bash(python -m isort src/monitoring/drift_detector.py tests/test_drift_detector.py --profile black)",
+      "Bash(python -m flake8 src/monitoring/drift_detector.py tests/test_drift_detector.py)",
+      "Bash(python -m bandit -r src/monitoring/drift_detector.py -ll -ii)",
+      "Bash(python -m pytest tests/ -v --tb=short --cov=src --cov-fail-under=70)",
+      "Bash(python -m bandit -r src/ -ll -ii)",
+      "Bash(python -c \"import evidently; print\\(evidently.__version__\\)\")",
+      "Bash(python -c \"from evidently.report import Report; print\\('Report OK'\\)\")",
+      "Bash(python -c \"from evidently.metric_preset import DataDriftPreset\")",
+      "Bash(python -c \"from evidently.presets import DataDriftPreset; print\\('presets OK'\\)\")",
+      "Bash(python -c \"from evidently.presets.dataset import DataDriftPreset; print\\('presets.dataset OK'\\)\")",
+      "Bash(python -c \"from evidently.presets import DataDriftPreset; from evidently import Report; r = Report\\([DataDriftPreset\\(\\)]\\); print\\('OK'\\)\")",
+      "Bash(python -m black src/ tests/)",
+      "Bash(python -m isort src/ tests/ --profile black)",
+      "Bash(python -m flake8 src/ tests/)",
+      "Bash(python -c \"from evidently import Report; from evidently.presets import DataDriftPreset; r = Report\\([DataDriftPreset\\(\\)]\\); print\\([m for m in dir\\(r\\) if 'save' in m.lower\\(\\) or 'html' in m.lower\\(\\)]\\)\")"
+    ]
+  }
+}

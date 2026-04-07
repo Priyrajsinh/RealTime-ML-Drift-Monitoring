@@ -21,6 +21,7 @@ asyncio_mode = "auto"
 filterwarnings = [
     "error::DeprecationWarning",
     "ignore:builtin type [Ss]wig:DeprecationWarning",
+    "ignore:numpy\\.core is deprecated:DeprecationWarning",
 ]
 
 [tool.interrogate]

@@ -131,7 +131,9 @@ def test_compare_shap_stub():
 
 
 def test_drift_detector_instantiates():
-    d = DriftDetector()
+    stats = {"F0": {"mean": 0.0, "std": 1.0, "min": -3.0, "max": 3.0}}
+    config = {"drift": {"psi_threshold": 0.2, "ks_alpha": 0.05}}
+    d = DriftDetector(stats, config)
     assert d is not None
 
 
