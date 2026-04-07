@@ -1,0 +1,44 @@
+data:
+  dataset_name: "UCI Credit Card Default"
+  n_samples: 30000
+  n_features: 23
+  test_size: 0.2
+  seed: 42
+
+model:
+  type: "RandomForestClassifier"
+  n_estimators: 100
+  max_depth: 10
+  random_state: 42
+
+drift:
+  psi_threshold: 0.2          # PSI > 0.2 = significant drift
+  ks_alpha: 0.05              # KS test significance level
+  evidently_report_ttl: 60    # cache drift report for 60 seconds
+  simulation:
+    normal_samples: 5000
+    drifted_samples: 5000
+    shift_intensity: 1.0      # shift means by +1 std
+    concept_drift_noise: 0.3  # label flip probability for concept drift
+
+monitoring:
+  prometheus_scrape_interval: 15  # seconds
+  psi_alert_threshold: 0.2       # fires Alertmanager alert
+  rolling_window: 100             # rolling accuracy window size
+
+api:
+  rate_limit_predict: "120/minute"
+  max_payload_mb: 1
+  cors_origins: ["http://localhost:3000"]
+  host: "0.0.0.0"
+  port: 8000
+
+shap:
+  n_background_samples: 100   # TreeExplainer background dataset size
+  n_drift_samples: 200        # samples to explain after drift detected
+
+mlflow:
+  experiment_name: "b5-drift-monitor"
+
+docker:
+  image_name: "b5-drift-monitor"
