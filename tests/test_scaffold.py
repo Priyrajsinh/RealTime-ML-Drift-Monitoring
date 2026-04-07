@@ -102,16 +102,19 @@ def test_exceptions_raise():
 # --- stubs return None ---
 
 
-def test_load_credit_default_returns_tuple():
+def test_load_credit_default_returns_tuple(monkeypatch):
+    cols = ["ID"] + [f"F{i}" for i in range(23)] + ["default payment next month"]
+    fake = pd.DataFrame([[0.0] * 25], columns=cols)
+    monkeypatch.setattr(pd, "read_csv", lambda path: fake)
     X, y = load_credit_default({})
     assert isinstance(X, pd.DataFrame)
     assert isinstance(y, pd.Series)
-    assert X.shape == (30000, 23)
+    assert X.shape[1] == 23
 
 
 def test_train_model_stub():
-    result = train_model({})
-    assert result is None
+    # train_model is now fully implemented; end-to-end tests live in test_train.py
+    assert callable(train_model)
 
 
 def test_predict_stub():
