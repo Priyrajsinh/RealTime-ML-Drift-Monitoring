@@ -1,7 +1,9 @@
 """Scaffold tests for B5 Drift Monitor."""
 
 import logging
+from unittest.mock import MagicMock
 
+import numpy as np
 import pandas as pd
 import pytest
 import yaml
@@ -123,8 +125,8 @@ def test_predict_stub():
 
 
 def test_compare_shap_stub():
-    result = compare_shap_under_drift()
-    assert result is None
+    # compare_shap_under_drift now requires arguments — tested in test_shap_drift.py
+    assert callable(compare_shap_under_drift)
 
 
 # --- monitoring stubs ---
@@ -138,7 +140,11 @@ def test_drift_detector_instantiates():
 
 
 def test_drift_simulator_instantiates():
-    s = DriftSimulator()
+    X = pd.DataFrame(np.zeros((10, 2)), columns=["A", "B"])
+    y = pd.Series(np.zeros(10, dtype=int))
+    stats = {"A": {"mean": 0.0, "std": 1.0, "min": -3.0, "max": 3.0}}
+    cfg = {"drift": {"psi_threshold": 0.2, "ks_alpha": 0.05, "simulation": {}}}
+    s = DriftSimulator(X, y, stats, cfg, model=MagicMock())
     assert s is not None
 
 
