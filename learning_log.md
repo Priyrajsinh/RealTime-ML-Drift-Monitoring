@@ -98,3 +98,109 @@
 - Next step: Day 2 — DriftDetector (PSI + KS test), DriftSimulator, Prometheus metrics wiring
 
 ---
+
+## Day 2 — 2026-04-07 — Drift detector with PSI + KS + Evidently + concept drift
+> Project: B5-Drift-Monitor
+
+### What was done
+- Implemented `DriftDetector` class with `compute_psi()`, `compute_ks_test()`, `detect_data_drift()`, `detect_concept_drift()`, `generate_evidently_report()`, and `get_cached_drift_report()`
+- PSI uses epsilon (1e-6) to prevent log(0) division errors on empty bins
+- Concept drift detection compares batch accuracy against baseline (>10% drop = drift)
+- Evidently report generates HTML using `DataDriftPreset` via v0.7 API (`Report([preset])` + `snapshot.save_html()`)
+- Drift report caching with TTL (60s default) to avoid expensive regeneration
+- 10 new tests covering PSI, KS, data drift, concept drift, Evidently HTML, and caching
+- Updated scaffold test to pass required `training_stats` and `config` args
+- Added numpy.core deprecation warning filter for evidently compatibility
+- All 5 CI gates green; 40/40 tests pass; 97% coverage
+
+### Why it was done
+- Core monitoring capability: detect when incoming data distributions shift (data drift) or when the model's learned relationship breaks (concept drift)
+- Three complementary methods: PSI (industry-standard threshold), KS test (statistical significance), Evidently (visual HTML report)
+- Caching prevents redundant computation on repeated API calls within short windows
+
+### How it was done
+- PSI: bin both distributions into equal-width buckets, compute `sum((actual_pct - expected_pct) * ln(actual_pct / expected_pct))`
+- KS test: `scipy.stats.ks_2samp` returns (statistic, p_value); p < 0.05 means distributions differ significantly
+- Data drift synthesises reference distribution from `training_stats` (mean/std) via `np.random.default_rng`
+- Concept drift: predict on batch, compare accuracy to baseline; accuracy drop >10% flags drift
+- Evidently 0.7 API: `from evidently import Report` + `from evidently.presets import DataDriftPreset`; `report.run()` returns a `Snapshot` with `save_html()`
+- Caching stores `_last_report_time` + `_last_report_result`; returns cached if within TTL
+
+### Why this tool / library — not alternatives
+| Tool Used | Why This | Rejected Alternative | Why Not |
+|-----------|----------|---------------------|---------|
+| PSI | Banking industry standard; interpretable 0.1/0.2 thresholds | JS divergence | PSI thresholds are more widely understood in production |
+| KS test (scipy) | Non-parametric; no distribution assumption required | Chi-squared | Chi-squared needs categorical bins; KS works on continuous |
+| Evidently DataDriftPreset | One-call HTML report with per-feature drift stats | Custom matplotlib | Evidently handles 20+ statistical tests automatically |
+| Time-based TTL cache | Simple, predictable invalidation for expensive reports | lru_cache | lru_cache needs hashable args; DataFrames are unhashable |
+| Accuracy-based concept drift | Simple, interpretable; no extra library needed | ADWIN/DDM | ADWIN planned for P4; accuracy drop is sufficient for B5 |
+
+### Definitions (plain English)
+- **PSI (Population Stability Index)**: measures how much a distribution shifted; <0.1 = fine, 0.1-0.2 = watch, >0.2 = alert.
+- **KS test**: checks if two samples come from the same distribution; low p-value = they differ.
+- **Data drift**: input feature distributions change (e.g., customers are suddenly older on average).
+- **Concept drift**: the relationship between features and labels changes (e.g., same age now means different default risk).
+- **TTL cache**: store a result for N seconds; serve the cached version until time expires.
+
+### Real-world use case
+- PSI monitoring: required by US/EU banking regulators (OCC, Basel III) to detect model decay in credit scoring models.
+- Data vs concept drift distinction: used by Spotify to separate "users changed" (data drift) from "taste changed" (concept drift) in recommendation models.
+
+### How to remember it
+- Data drift = "different people walked into the store" (input changed). Concept drift = "same people, but they want different things now" (relationship changed).
+- PSI threshold: 0.2 is like a speed limit — below it you're fine, above it you get flagged.
+
+### Status
+- [x] Done
+- Next step: Day 3 — DriftSimulator, Prometheus metrics wiring, FastAPI drift endpoints
+
+---
+
+## Day 3 — 2026-04-08 — Drift Simulation Engine + Portfolio Plots
+> Project: B5-Drift-Monitor
+
+### What was done
+- Implemented `DriftSimulator` with `simulate_data_drift` (gradual +0.2→+1.0 std shift) and `simulate_concept_drift` (label flip, features unchanged).
+- Implemented `run_full_simulation`: 150 batches (50 normal / 50 data drift / 50 concept drift), computing per-batch PSI and accuracy.
+- Created 3 portfolio plots: `accuracy_collapse.png` (money shot), `psi_timeline.png`, `drift_flag_timeline.png`.
+- Implemented `compare_shap_under_drift` and `plot_shap_comparison` (B2 SHAP tie-in).
+- 22 new tests; 62 total passing; coverage 97.81%.
+
+### Why it was done
+- Recruiters need a visual that shows WHY drift monitoring matters without any technical explanation.
+- Concept drift vs data drift distinction is the key educational insight of this project.
+- PSI alone cannot catch concept drift — the PSI timeline plot proves this visually.
+
+### How it was done
+- Gradual shift: 5 sub-batches per drift epoch, shift intensity 0.2→1.0 × std.
+- Concept drift: `numpy` random mask flips ~30% of labels; X is untouched.
+- `plt.switch_backend("Agg")` placed after ALL imports to avoid E402 flake8 error.
+- SHAP mocked in tests with `@patch("src.monitoring.shap_drift.shap")` — module-level import required for mock to intercept.
+
+### Why this tool / library — not alternatives
+| Tool Used | Why This | Rejected Alternative | Why Not |
+|-----------|----------|---------------------|---------|
+| `numpy.random.default_rng` | Reproducible, modern API | `random.random()` | No seeding, scalar only |
+| `matplotlib Agg backend` | Headless PNG output, no display needed | Default TkAgg | Crashes in CI (no display) |
+| `shap.TreeExplainer` | Exact SHAP for tree models, fast | KernelExplainer | Slow, model-agnostic approximation |
+| `pd.concat` for sub-batches | Vectorised, preserves dtypes | Loop append | Deprecated `.append()`, O(n²) |
+
+### Definitions (plain English)
+- **Data drift**: The distribution of input features changes — the model sees different kinds of data than it trained on.
+- **Concept drift**: Same features, but the correct answer has changed — the world's rules have shifted.
+- **PSI (Population Stability Index)**: A number measuring how much a distribution shifted; >0.2 means "alert, something changed".
+- **SHAP importance shift**: How much a feature's influence on predictions changed between training and drifted data.
+
+### Real-world use case
+- Stripe: uses accuracy monitoring + feature distribution checks to detect when fraud patterns shift after an economic shock.
+- Netflix: monitors concept drift in recommendation models when user behaviour changes (e.g., holiday season).
+
+### How to remember it
+- **Data drift = the weather changed**; concept drift = **the rules of cricket changed mid-game**.
+- PSI catches the weather change but not the rule change — you need accuracy monitoring for that.
+
+### Status
+- [x] Done
+- Next step: Day 4 — FastAPI drift endpoints + Prometheus metrics wiring
+
+---
