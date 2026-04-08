@@ -204,3 +204,51 @@
 - Next step: Day 4 — FastAPI drift endpoints + Prometheus metrics wiring
 
 ---
+
+## Day 4 — 2026-04-08 — FastAPI + Prometheus metrics + drift report caching
+> Project: B5-Drift-Monitor
+
+### What was done
+- Rewrote `src/monitoring/metrics.py` with uppercase canonical names (`PREDICTION_COUNTER`, `FEATURE_PSI` with label, etc.) plus backward-compat aliases.
+- Implemented full `src/api/app.py`: lifespan startup, slowapi rate limiting, CORS, content-length guard, Prometheus instrumentator, 5 endpoints.
+- Added `BatchPredictRequest` / `BatchPredictResponse` to `src/data/schemas.py`.
+- Wrote `tests/test_api.py` (12 tests, async httpx client, mocked state) and `tests/test_metrics.py` (8 tests).
+- All 5 CI gates green; 82/82 tests passed; 94% coverage.
+
+### Why it was done
+- Expose the drift monitor as a production-grade HTTP API with observable Prometheus metrics and cached drift reports.
+
+### How it was done
+- Copied B4 lifespan/slowapi/CORS/content-length pattern into B5.
+- `_state` dict holds `model_server`, `drift_detector`, rolling buffer (deque maxlen=500), and counters.
+- Single predict → appends to buffer; runs drift check every `ROLLING_WINDOW` calls.
+- Batch predict → drift detection runs on the submitted batch directly.
+- `/api/v1/drift_report` delegates TTL caching to `DriftDetector.get_cached_drift_report` (TTL=60s from config).
+- Tests patch `_state` via `autouse` fixture; `ASGITransport` skips lifespan so mocks are injected cleanly.
+
+### Why this tool / library — not alternatives
+| Tool Used | Why This | Rejected Alternative | Why Not |
+|-----------|----------|---------------------|---------|
+| slowapi | Starlette-native rate limiter, zero config | fastapi-limiter | Requires Redis dependency |
+| prometheus-fastapi-instrumentator | Auto-instruments all routes in one line | manual middleware | More boilerplate, misses edge cases |
+| httpx AsyncClient + ASGITransport | Async test client, no server needed | TestClient (sync) | Can't test async endpoints directly |
+| deque(maxlen=500) | O(1) append, automatic eviction | list + slice | Slower, needs manual trimming |
+
+### Definitions (plain English)
+- **Gauge**: A Prometheus metric that can go up and down (e.g., current PSI value); use `.set()`.
+- **Counter**: A Prometheus metric that only increases (e.g., total predictions); use `.inc()`.
+- **PSI (Population Stability Index)**: Measures how much a feature's distribution has shifted; > 0.2 = significant drift.
+- **TTL cache**: "Time-to-live" — return a stored result until it expires, then regenerate.
+- **ASGI lifespan**: Startup/shutdown hook that runs once when the FastAPI server starts and stops.
+
+### Real-world use case
+- Stripe uses a similar pattern: a FastAPI service exposes `/metrics` that Prometheus scrapes every 15s; Grafana dashboards alert when fraud-model PSI spikes above threshold.
+
+### How to remember it
+- Gauge = Gas gauge on a car (can go up and down). Counter = odometer (only goes up). Never `.inc()` a gas gauge.
+
+### Status
+- [x] Done
+- Next step: Day 5 — Streamlit dashboard wiring + Gradio HF Space
+
+---
