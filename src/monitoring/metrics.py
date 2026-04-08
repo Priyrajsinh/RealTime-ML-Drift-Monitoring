@@ -1,29 +1,54 @@
-"""Prometheus metric definitions for B5 monitoring."""
+"""Prometheus metric definitions for B5 monitoring.
+
+All metrics defined here — imported by other modules, never re-created.
+Rule 21: metric names use underscores, NOT hyphens.
+Rule 23: Gauge metrics use .set(), NOT .inc().
+"""
 
 from prometheus_client import Counter, Gauge, Histogram
 
-prediction_counter = Counter(
-    "b5_predictions_total",
+# Prediction metrics
+PREDICTION_COUNTER = Counter(
+    "prediction_total",
     "Total number of predictions served",
 )
+PREDICTION_LATENCY = Histogram(
+    "prediction_latency_seconds",
+    "Prediction latency in seconds",
+    buckets=[0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5],
+)
 
-drift_event_counter = Counter(
-    "b5_drift_events_total",
+# Drift metrics
+DRIFT_DETECTED_COUNTER = Counter(
+    "drift_detected_total",
     "Total number of drift events detected",
 )
-
-psi_gauge = Gauge(
-    "b5_drift_psi_value",
-    "Most recent PSI value for drift detection",
-    ["feature"],
+CURRENT_PSI = Gauge(
+    "current_psi_max",
+    "Maximum PSI value across all features",
+)
+FEATURE_PSI = Gauge(
+    "feature_psi",
+    "PSI value per feature",
+    ["feature_name"],
 )
 
-prediction_latency = Histogram(
-    "b5_prediction_latency_seconds",
-    "Prediction endpoint latency in seconds",
-)
-
-rolling_accuracy_gauge = Gauge(
-    "b5_rolling_accuracy",
+# Model health metrics
+MODEL_ACCURACY_ROLLING = Gauge(
+    "model_accuracy_rolling",
     "Rolling accuracy over last N predictions",
 )
+N_PREDICTIONS = Gauge(
+    "n_predictions_total",
+    "Total predictions served since startup",
+)
+N_DRIFT_EVENTS = Gauge(
+    "n_drift_events_total",
+    "Total drift events since startup",
+)
+
+# Backward-compatible aliases (used by test_scaffold.py)
+prediction_counter = PREDICTION_COUNTER
+drift_event_counter = DRIFT_DETECTED_COUNTER
+psi_gauge = FEATURE_PSI
+rolling_accuracy_gauge = MODEL_ACCURACY_ROLLING

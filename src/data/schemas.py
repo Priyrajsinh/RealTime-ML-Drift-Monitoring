@@ -31,6 +31,25 @@ class DriftReport(BaseModel):
     drifted_features: List[str]
 
 
+class BatchPredictRequest(BaseModel):
+    features_list: List[List[float]]
+
+    @field_validator("features_list")
+    @classmethod
+    def check_each_row(cls, v: List[List[float]]) -> List[List[float]]:
+        for row in v:
+            if len(row) != N_FEATURES:
+                raise ValueError(
+                    f"Expected {N_FEATURES} features per row, got {len(row)}"
+                )
+        return v
+
+
+class BatchPredictResponse(BaseModel):
+    predictions: List[PredictResponse]
+    drift_report: DriftReport
+
+
 class HealthResponse(BaseModel):
     status: str
     model_loaded: bool
