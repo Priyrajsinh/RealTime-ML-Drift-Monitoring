@@ -7,6 +7,7 @@ Tab 3: How It Works
 
 import json
 import os
+import tempfile
 
 import gradio as gr
 import joblib
@@ -572,6 +573,20 @@ def simulate(shift_intensity: float):
 
     fig_leaderboard = plot_feature_leaderboard(psi_per_feat)
 
+    # --- CSV download (leaderboard) ---
+    csv_tmp = tempfile.NamedTemporaryFile(
+        delete=False, suffix=".csv", prefix="drift_results_"
+    )
+    leaderboard_df.to_csv(csv_tmp.name, index=False)
+    csv_tmp.close()
+
+    # --- PNG download (accuracy collapse) ---
+    png_tmp = tempfile.NamedTemporaryFile(
+        delete=False, suffix=".png", prefix="accuracy_collapse_"
+    )
+    fig_accuracy.savefig(png_tmp.name, dpi=150, bbox_inches="tight")
+    png_tmp.close()
+
     return (
         psi_gauge_html,
         acc_html,
@@ -584,6 +599,8 @@ def simulate(shift_intensity: float):
         fig_shap,
         f"Simulated 150 batches \u00d7 {len(FEATURES)} features "
         f"| intensity: {shift_intensity}x",
+        csv_tmp.name,
+        png_tmp.name,
     )
 
 
@@ -736,6 +753,16 @@ collapses — all without the model knowing anything changed.
                 with gr.Row():
                     fig_leaderboard_out = gr.Plot(label="PSI by Feature (bar chart)")
                     fig_shap_out = gr.Plot(label="SHAP Comparison: Baseline vs Drifted")
+                gr.Markdown("### Downloads")
+                with gr.Row():
+                    csv_download = gr.File(
+                        label="Drift Results CSV",
+                        file_types=[".csv"],
+                    )
+                    png_download = gr.File(
+                        label="Accuracy Collapse PNG",
+                        file_types=[".png"],
+                    )
 
             # ── Tab 3 — How It Works ────────────────────────────────────────
             with gr.Tab("How It Works"):
@@ -753,6 +780,8 @@ collapses — all without the model knowing anything changed.
             fig_leaderboard_out,
             fig_shap_out,
             footer_out,
+            csv_download,
+            png_download,
         ]
         simulate_btn.click(fn=simulate, inputs=[intensity_slider], outputs=outputs)
 
