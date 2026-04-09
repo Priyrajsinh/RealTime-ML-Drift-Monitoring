@@ -252,3 +252,111 @@
 - Next step: Day 5 — Streamlit dashboard wiring + Gradio HF Space
 
 ---
+
+## Day 5 — 2026-04-09 — Docker Compose monitoring stack + 3-tab Streamlit dashboard
+> Project: B5-Drift-Monitor
+
+### What was done
+- Created multi-stage Dockerfile (builder + runtime, non-root user, EXPOSE 8000).
+- Created 4-service docker-compose.yml (app, Prometheus, Grafana, Alertmanager).
+- Added Prometheus scrape config + alert rules (PSI > 0.2, accuracy < 65%).
+- Added Alertmanager config routing alerts to FastAPI `/api/v1/alert_webhook`.
+- Created Grafana provisioning (datasource, dashboard provider, 6-panel dashboard JSON).
+- Added `/api/v1/alert_webhook` and `/api/v1/alerts` FastAPI endpoints.
+- Implemented 3-tab Streamlit dashboard: Live Monitor, Analysis, How It Works.
+
+### Why it was done
+- Production ML models need automated drift detection and alerting to prevent silent model degradation.
+- A recruiter-proof Tab 1 demonstrates the monitoring concept in 3 seconds (one button click).
+- The full Prometheus/Grafana/Alertmanager stack mirrors real production monitoring pipelines.
+
+### How it was done
+- Multi-stage Docker build keeps image small (only runtime deps in final image).
+- Prometheus scrapes FastAPI `/metrics` every 15s; alert rules trigger on PSI/accuracy thresholds.
+- Alertmanager routes fired alerts to a webhook endpoint that logs and stores them in a deque.
+- Grafana auto-provisions the Prometheus datasource and a pre-built 6-panel dashboard via volume mounts.
+- Streamlit Tab 1 runs a 150-batch simulation with live-updating charts (PSI, accuracy, alert log).
+- Tab 2 provides feature-level drift leaderboard, SHAP comparison, and Evidently report embed.
+
+### Why this tool / library — not alternatives
+| Tool Used | Why This | Rejected Alternative | Why Not |
+|-----------|----------|---------------------|---------|
+| docker-compose | Orchestrates 4 services with one command, standard for local dev | Kubernetes | Overkill for portfolio project; k8s adds complexity without portfolio value |
+| Prometheus | Pull-based metrics scraping, native alerting rules, industry standard | Datadog/New Relic | SaaS cost, not self-hosted; Prometheus is free and shows deeper understanding |
+| Grafana | Rich dashboards, auto-provisioning via YAML/JSON, pairs with Prometheus | Kibana | Designed for logs (ELK), not metrics; Grafana is the standard for Prometheus |
+| Alertmanager | Native Prometheus integration, grouping/routing/silencing | PagerDuty directly | Alertmanager adds deduplication layer; PagerDuty is a downstream receiver |
+| Streamlit | Python-native, rapid prototyping, st.tabs for 3-tab layout | Gradio | Gradio better for HF Spaces; Streamlit better for multi-tab data dashboards |
+
+### Definitions (plain English)
+- **Multi-stage Docker build**: Building in two phases — first installs dependencies, second copies only what's needed, making the final image smaller.
+- **Prometheus scrape**: Prometheus periodically fetches metrics from your app's `/metrics` endpoint (pull model, not push).
+- **Grafana provisioning**: Pre-configuring datasources and dashboards via config files so Grafana starts ready-to-use.
+- **Alertmanager**: Receives alerts from Prometheus, groups them, and routes to receivers (webhook, Slack, email).
+- **Webhook**: An HTTP endpoint that another service calls to notify your app of an event.
+
+### Real-world use case
+- Netflix uses Prometheus + Grafana to monitor ML recommendation models; when feature distributions drift (detected via PSI-like metrics), Alertmanager pages the ML platform team.
+
+### How to remember it
+- Docker Compose = "orchestra conductor" — one baton wave (`docker compose up`) starts all 4 musicians (services) playing together.
+- Prometheus = "hall monitor" — walks around every 15s checking if things are OK, and reports to the principal (Alertmanager) when they're not.
+
+### Status
+- [x] Done
+- Next step: Day 6 — Gradio HF Space deployment
+
+---
+
+## Day 6 — 2026-04-09 — Gradio HF Space + README — B5 Complete
+> Project: B5-Drift-Monitor
+
+### What was done
+- Created `hf_space/app.py` (550 lines, 100% self-contained, zero src/ imports) with 3-tab Gradio UI.
+- Inlined PSI computation, DriftSimulator, SHAP comparison — no external src/ dependency.
+- Tab 1: recruiter-facing PSI gauge + accuracy collapse chart + alert banner + summary.
+- Tab 2: feature drift leaderboard (DataFrame), PSI bar chart, SHAP baseline vs drifted chart.
+- Tab 3: ASCII architecture, PSI formula, drift type comparison, tech stack, portfolio table.
+- Added simulation result cache (`_SIM_CACHE`) keyed by rounded intensity — instant re-runs.
+- Created `hf_space/requirements.txt` with all 8 pinned dependencies.
+- Created `README.md` with architecture diagram, PSI formula, drift comparison table, quick start.
+- Updated Makefile `docker-up` to include `--build` flag.
+- All 5 CI gates green: black → isort → flake8 → bandit → pytest (92 tests, 75% coverage).
+
+### Why it was done
+- HF Space gives a public, zero-install demo that recruiters can run in 3 seconds.
+- README serves as the project's portfolio landing page with all key results documented.
+- Self-contained constraint (no src/ imports) ensures the Space works with only its own requirements.txt.
+
+### How it was done
+- Copied logic from src/ and inlined it directly in app.py (PSI formula, drift simulation loop, SHAP).
+- Used synthetic data generated from `training_stats.json` (mean/std per feature) — no raw dataset needed.
+- `gr.Blocks` with `gr.Tabs()` for 3-tab layout; `gr.Button.click()` wires one handler to 10 outputs.
+- Cache key = `round(shift_intensity, 1)` — same slider position returns instantly on re-run.
+- All flake8 E501 violations fixed by shortening markdown table rows and splitting HTML style strings.
+
+### Why this tool / library — not alternatives
+| Tool Used | Why This | Rejected Alternative | Why Not |
+|-----------|----------|---------------------|---------|
+| Gradio gr.Blocks | Full layout control, multi-tab, HTML outputs | gr.Interface | Interface is single-function; Blocks needed for tabs + multi-output |
+| Synthetic data from stats | No 30K-row dataset needed in Space | Upload dataset file | Large binary files slow HF Space startup; stats.json is 2KB |
+| dict cache (_SIM_CACHE) | Instant re-run for same intensity | functools.lru_cache | lru_cache needs hashable args; dict cache simpler for float key |
+| Inlined logic (no src/) | Space works standalone | Import from src/ | src/ imports crash HF Space (CLAUDE.md rule 13) |
+
+### Definitions (plain English)
+- **HF Space**: A free hosted app on Hugging Face that runs Gradio/Streamlit code publicly without any server setup.
+- **Self-contained**: The app has everything it needs in one folder — no imports from outside that folder.
+- **Simulation cache**: A dict that stores results so the same computation isn't repeated when inputs haven't changed.
+- **gr.HTML**: A Gradio output that renders raw HTML — used here for the colored PSI gauge and alert banner.
+
+### Real-world use case
+- Hugging Face Spaces hosts 100,000+ ML demos used by companies for model showcases; the same Gradio pattern is used by Stability AI, Mistral AI, and Google for their public model demos.
+
+### How to remember it
+- HF Space = "GitHub Pages for ML models" — push code + requirements, get a public URL instantly.
+- Self-contained Space = "packed lunch" — everything you need is in the box; don't depend on the school cafeteria (src/).
+
+### Status
+- [x] Done
+- Next step: Deploy to HF Space (push hf_space/ to a new HF repo)
+
+---
