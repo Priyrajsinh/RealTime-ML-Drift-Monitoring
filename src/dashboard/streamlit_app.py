@@ -355,7 +355,7 @@ def tab_analysis():
         # Evidently report embed
         st.subheader("Evidently Drift Report")
         if os.path.exists(_REPORT_PATH):
-            with open(_REPORT_PATH) as fh:
+            with open(_REPORT_PATH, encoding="utf-8") as fh:
                 html_content = fh.read()
             st.components.v1.html(html_content, height=600, scrolling=True)
         else:
