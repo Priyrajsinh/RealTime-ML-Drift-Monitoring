@@ -151,9 +151,11 @@ def run_simulation(shift_intensity: float) -> dict:
     rng = np.random.default_rng(42)
     batch_size = 100
     results = []
-
-    # Baseline accuracy on synthetic normal data
     psi_per_feature_drifted: dict[str, float] = {}
+
+    # Collect batches for Evidently reference vs current
+    X_normal_batches: list[pd.DataFrame] = []
+    X_drifted_batches: list[pd.DataFrame] = []
 
     for batch_id in range(1, 151):
         X_batch = _make_training_data(TRAINING_STATS, n=batch_size, rng=rng)
@@ -162,12 +164,14 @@ def run_simulation(shift_intensity: float) -> dict:
         if batch_id <= 50:
             drift_type = "none"
             X_eval = X_batch
+            X_normal_batches.append(X_batch)
 
         elif batch_id <= 100:
             drift_type = "data"
             sub_idx = batch_id - 51
             level = (sub_idx // 10 + 1) * 0.2
             X_eval = _apply_drift(X_batch, TRAINING_STATS, level * shift_intensity, rng)
+            X_drifted_batches.append(X_eval)
 
         else:
             drift_type = "concept"
@@ -236,6 +240,8 @@ def run_simulation(shift_intensity: float) -> dict:
         "top_drifted_features": top_drifted,
         "psi_per_feature": psi_per_feature_drifted,
         "last_ks": results[-51]["ks_results"] if len(results) >= 51 else {},
+        "X_reference": pd.concat(X_normal_batches, ignore_index=True),
+        "X_current": pd.concat(X_drifted_batches, ignore_index=True),
     }
     _SIM_CACHE[key] = out
     return out
@@ -436,6 +442,30 @@ def compute_shap_drifted(model, stats: dict, shift_intensity: float) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Evidently report generation (inlined — uses evidently package)
+# ---------------------------------------------------------------------------
+
+
+def generate_evidently_html(
+    reference: pd.DataFrame, current: pd.DataFrame, intensity: float
+) -> str:
+    """Generate Evidently DataDrift HTML report. Returns temp file path."""
+    from evidently import Report
+    from evidently.presets import DataDriftPreset
+
+    report = Report([DataDriftPreset()])
+    snapshot = report.run(reference_data=reference, current_data=current)
+    tmp = tempfile.NamedTemporaryFile(
+        delete=False,
+        suffix=".html",
+        prefix=f"evidently_drift_intensity{intensity}_",
+    )
+    snapshot.save_html(tmp.name)
+    tmp.close()
+    return tmp.name
+
+
+# ---------------------------------------------------------------------------
 # Main simulation handler
 # ---------------------------------------------------------------------------
 
@@ -455,6 +485,9 @@ def simulate(shift_intensity: float):
             "<div style='color:red;font-size:24px'>N/A</div>",
             "<div style='color:red;font-size:24px'>N/A</div>",
             err_div,
+            None,
+            None,
+            None,
             None,
             None,
             None,
@@ -587,6 +620,13 @@ def simulate(shift_intensity: float):
     fig_accuracy.savefig(png_tmp.name, dpi=150, bbox_inches="tight")
     png_tmp.close()
 
+    # --- Evidently HTML report (generated from this user's simulation data) ---
+    html_path = generate_evidently_html(
+        reference=data["X_reference"],
+        current=data["X_current"],
+        intensity=shift_intensity,
+    )
+
     return (
         psi_gauge_html,
         acc_html,
@@ -601,6 +641,7 @@ def simulate(shift_intensity: float):
         f"| intensity: {shift_intensity}x",
         csv_tmp.name,
         png_tmp.name,
+        html_path,
     )
 
 
@@ -754,27 +795,26 @@ collapses — all without the model knowing anything changed.
                     fig_leaderboard_out = gr.Plot(label="PSI by Feature (bar chart)")
                     fig_shap_out = gr.Plot(label="SHAP Comparison: Baseline vs Drifted")
                 gr.Markdown("### Downloads")
+                gr.Markdown(
+                    "All files are generated from **your** simulation run "
+                    "and reflect your chosen drift intensity."
+                )
                 with gr.Row():
                     csv_download = gr.File(
-                        label="Drift Results CSV (generated after simulation)",
+                        label="Drift Results CSV",
                         file_types=[".csv"],
                     )
                     png_download = gr.File(
-                        label="Accuracy Collapse PNG (generated after simulation)",
+                        label="Accuracy Collapse PNG",
                         file_types=[".png"],
                     )
-                _html_report = os.path.join(_BASE, "evidently_report.html")
-                if os.path.exists(_html_report):
-                    gr.Markdown(
-                        "**Evidently Drift Report** — full interactive HTML "
-                        "report with per-feature distribution plots. "
-                        "Download and open in any browser (works offline)."
-                    )
-                    gr.File(
-                        value=_html_report,
-                        label="Evidently Drift Report (HTML)",
-                        file_types=[".html"],
-                    )
+                html_download = gr.File(
+                    label=(
+                        "Evidently Drift Report (HTML) — "
+                        "interactive, works offline in any browser"
+                    ),
+                    file_types=[".html"],
+                )
 
             # ── Tab 3 — How It Works ────────────────────────────────────────
             with gr.Tab("How It Works"):
@@ -794,6 +834,7 @@ collapses — all without the model knowing anything changed.
             footer_out,
             csv_download,
             png_download,
+            html_download,
         ]
         simulate_btn.click(fn=simulate, inputs=[intensity_slider], outputs=outputs)
 
