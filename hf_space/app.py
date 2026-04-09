@@ -179,9 +179,14 @@ def run_simulation(shift_intensity: float) -> dict:
 
         y_pred = MODEL.predict(X_eval)
         if drift_type == "concept":
-            # Simulate concept drift: flip ~30% of labels
+            # Concept drift: flip rate scales with shift_intensity
+            # intensity=0 → 5% flip → ~95% acc
+            # intensity=1 → 20% flip → ~80% acc
+            # intensity=2 → 35% flip → ~65% acc
+            # intensity=3 → 50% flip → ~50% acc (random guessing)
+            flip_rate = min(0.05 + shift_intensity * 0.15, 0.5)
             y_true = (MODEL.predict_proba(X_batch)[:, 1] > 0.5).astype(int)
-            flip = rng.random(len(y_true)) < 0.3
+            flip = rng.random(len(y_true)) < flip_rate
             y_true[flip] = 1 - y_true[flip]
             accuracy = float(np.mean(y_pred == y_true))
         else:
