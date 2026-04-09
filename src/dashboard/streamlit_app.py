@@ -66,7 +66,7 @@ def _run_simulation(config: dict, training_stats: dict):
     df_train = pd.read_parquet(train_path)
     feature_cols = list(training_stats.keys())
     X_train = df_train[feature_cols]
-    y_train = df_train["default payment next month"]
+    y_train = df_train["target"]
 
     rng = np.random.default_rng(42)
     batch_size = 100
