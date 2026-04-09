@@ -2,17 +2,20 @@
 
 import json
 import os
+import sys
 import time
 
-import matplotlib.pyplot as plt
-import numpy as np
-import pandas as pd
-import streamlit as st
-import yaml
+_PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+if _PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, _PROJECT_ROOT)
+
+import matplotlib.pyplot as plt  # noqa: E402
+import numpy as np  # noqa: E402
+import pandas as pd  # noqa: E402
+import streamlit as st  # noqa: E402
+import yaml  # noqa: E402
 
 plt.switch_backend("Agg")
-
-_PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 _CONFIG_PATH = os.path.join(_PROJECT_ROOT, "config", "config.yaml")
 _STATS_PATH = os.path.join(_PROJECT_ROOT, "models", "training_stats.json")
 _MODEL_PATH = os.path.join(_PROJECT_ROOT, "models", "random_forest.pkl")
