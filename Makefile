@@ -22,7 +22,7 @@ dashboard:
 	streamlit run src/dashboard/streamlit_app.py
 
 docker-up:
-	docker-compose up -d
+	docker-compose up -d --build
 
 docker-down:
 	docker-compose down
