@@ -756,12 +756,24 @@ collapses — all without the model knowing anything changed.
                 gr.Markdown("### Downloads")
                 with gr.Row():
                     csv_download = gr.File(
-                        label="Drift Results CSV",
+                        label="Drift Results CSV (generated after simulation)",
                         file_types=[".csv"],
                     )
                     png_download = gr.File(
-                        label="Accuracy Collapse PNG",
+                        label="Accuracy Collapse PNG (generated after simulation)",
                         file_types=[".png"],
+                    )
+                _html_report = os.path.join(_BASE, "evidently_report.html")
+                if os.path.exists(_html_report):
+                    gr.Markdown(
+                        "**Evidently Drift Report** — full interactive HTML "
+                        "report with per-feature distribution plots. "
+                        "Download and open in any browser (works offline)."
+                    )
+                    gr.File(
+                        value=_html_report,
+                        label="Evidently Drift Report (HTML)",
+                        file_types=[".html"],
                     )
 
             # ── Tab 3 — How It Works ────────────────────────────────────────
