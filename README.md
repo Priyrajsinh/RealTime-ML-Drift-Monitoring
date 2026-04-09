@@ -262,6 +262,48 @@ RealTime-ML-Drift-Monitoring/
 
 ---
 
+## References & Research
+
+### Papers Read Before Building
+
+**[1] Failing Loudly: An Empirical Study of Methods for Detecting Dataset Shift**
+Rabanser, S., Günnemann, S., & Lipton, Z. (2019). *NeurIPS 2019.*
+The core paper behind this project. Systematically compares PSI, KS test, Maximum Mean Discrepancy, and classifier-based drift detectors across real datasets. Key finding: no single method wins across all shift types — combining PSI (distribution-level) with accuracy monitoring (output-level) catches what individual methods miss.
+→ [arXiv:1810.11953](https://arxiv.org/abs/1810.11953)
+
+**[2] A Unified Approach to Interpreting Model Predictions (SHAP)**
+Lundberg, S. M., & Lee, S. I. (2017). *NeurIPS 2017.*
+Foundation for the SHAP comparison feature — explains why feature importances shift under drift and how to use SHAP values to pinpoint which features are carrying the distribution change.
+→ [arXiv:1705.07874](https://arxiv.org/abs/1705.07874)
+
+**[3] A Survey on Concept Drift Adaptation**
+Gama, J., Žliobaitė, I., Bifet, A., Pechenizkiy, M., & Bouchaev, A. (2014). *ACM Computing Surveys.*
+Defines the distinction between data drift and concept drift rigorously. Informed the decision to simulate both types separately (feature shift in batches 51–100, label relationship shift in batches 101–150) and monitor them with different methods.
+→ [ACM DL](https://dl.acm.org/doi/10.1145/2523813)
+
+**[4] Random Forests**
+Breiman, L. (2001). *Machine Learning, 45(1), 5–32.*
+The base model used throughout. Chosen because it is SHAP-compatible via TreeExplainer (no approximation needed), interpretable, and strong on tabular credit data without hyperparameter tuning.
+→ [Springer](https://link.springer.com/article/10.1023/A:1010933404324)
+
+**[5] The Comparisons of Data Mining Techniques for the Predictive Accuracy of Probability of Default of Credit Card Clients**
+Yeh, I. C., & Lien, C. H. (2009). *Expert Systems with Applications, 36(2).*
+The original paper behind the UCI Credit Card Default dataset used to train and simulate drift. 30,000 Taiwan credit card clients, 23 features, binary default prediction.
+→ [UCI ML Repository](https://archive.ics.uci.edu/dataset/350/default+of+credit+card+clients)
+
+---
+
+### Industry Standards Referenced
+
+| Concept | Source |
+|---------|--------|
+| PSI threshold (0.1 / 0.2) | Standard in US banking model risk management (SR 11-7 guidance) |
+| Prometheus + Grafana stack | CNCF observability standard, used by Uber, Airbnb, GitLab |
+| Alertmanager routing | Prometheus official documentation |
+| Evidently drift reports | Evidently AI open-source library documentation |
+
+---
+
 <div align="center">
 
 **[Live Demo](https://huggingface.co/spaces/Priyrajsinh/RealTime-ML-Drift-Monitoring)** · Built with Python 3.10
