@@ -262,18 +262,6 @@ RealTime-ML-Drift-Monitoring/
 
 ---
 
-## Part of a 5-Project ML Engineering Portfolio
-
-| # | Project | Core Skills |
-|---|---------|-------------|
-| B1 | HuggingFace Fine-Tuning | Transfer learning, LoRA, production FastAPI |
-| B2 | XGBoost + SHAP | Gradient boosting, explainability dashboard |
-| B3 | PyTorch LSTM | Time series, custom training loop, early stopping |
-| B4 | Semantic Search + FAISS | Embeddings, vector search, hybrid BM25 + dense |
-| **B5** | **Real-Time ML Monitoring** | **Drift detection, Prometheus, Grafana, Alertmanager** |
-
----
-
 <div align="center">
 
 **[Live Demo](https://huggingface.co/spaces/Priyrajsinh/RealTime-ML-Drift-Monitoring)** · Built with Python 3.10
