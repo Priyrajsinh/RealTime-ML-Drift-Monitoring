@@ -18,3 +18,5 @@ reports/drift/*.html
 requirements-lock.txt
 hf_space/*.pkl
 hf_space/*.json
+hf_space/evidently_report.html
+reports/drift/*.html

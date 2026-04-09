@@ -1,0 +1,11 @@
+# Tell GitHub Linguist to ignore generated/vendor files
+# so language stats show actual source code only
+
+hf_space/evidently_report.html linguist-generated=true
+reports/drift/*.html            linguist-generated=true
+models/*.pkl                    linguist-generated=true
+models/*.json                   linguist-generated=true
+reports/figures/*.png           linguist-generated=true
+grafana/**                      linguist-vendored=true
+mlruns/**                       linguist-vendored=true
+venv/**                         linguist-vendored=true
