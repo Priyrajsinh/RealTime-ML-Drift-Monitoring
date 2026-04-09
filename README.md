@@ -1,146 +1,281 @@
-# B5 — Real-Time ML API + Drift Monitoring
+<div align="center">
+
+# Real-Time ML Drift Monitor
+
+### Watch a production model silently break — and catch it before it causes damage
+
+[![Live Demo](https://img.shields.io/badge/🤗%20Live%20Demo-HuggingFace%20Space-FFD21E?style=for-the-badge)](https://huggingface.co/spaces/Priyrajsinh/RealTime-ML-Drift-Monitoring)
+[![Python](https://img.shields.io/badge/Python-3.10-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.135-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
+[![Tests](https://img.shields.io/badge/Tests-92%20passing-27ae60?style=for-the-badge)](tests/)
+[![Coverage](https://img.shields.io/badge/Coverage-75%25-27ae60?style=for-the-badge)](tests/)
+
+</div>
+
+---
+
+## What Problem Does This Solve?
+
+A machine learning model that was 82% accurate last month can quietly degrade to 61% accuracy today — with **no error, no crash, no warning**. The model keeps running. Predictions keep flowing. Business decisions keep being made on bad data.
+
+This project builds a complete monitoring system that catches this before it happens:
+
+- **PSI (Population Stability Index)** detects when incoming feature distributions drift away from training
+- **KS Test** provides a statistical second opinion on distribution shift
+- **Accuracy Monitoring** catches concept drift — when the same features start meaning something different
+- **SHAP Comparison** answers *which features* changed and by how much
+- **Evidently Reports** give a full per-feature breakdown, downloadable as interactive HTML
+- **Prometheus + Grafana + Alertmanager** fire real alerts when thresholds are breached
+
+---
 
 ## Live Demo
-[**Try it on Hugging Face Spaces**](https://huggingface.co/spaces/Priyrajsinh/B5-Drift-Monitor) *(add after deploying)*
 
-## What This Does
-This project monitors a machine learning model in real-time, detecting when
-the data it receives starts looking different from what it was trained on.
-Click the demo above to watch a model's accuracy collapse as data drifts —
-and see how monitoring catches the problem before it causes damage.
+**[Try it on Hugging Face Spaces →](https://huggingface.co/spaces/Priyrajsinh/RealTime-ML-Drift-Monitoring)**
 
-The model is a Random Forest trained on the UCI Credit Card Default dataset (30,000 samples,
-23 features). Two types of drift are simulated: **data drift** (feature distributions
-shift) and **concept drift** (same features, different default patterns).
+Set the drift intensity, click **Simulate Drift**, and watch:
+- The PSI gauge climb from green → yellow → red
+- The accuracy collapse chart show the model breaking in real time
+- A personalized Evidently HTML report generated for your exact simulation — download it and open offline
 
-## Architecture
-```
-[FastAPI API] ──► [Prometheus] ──► [Grafana Dashboard]
-      │                                     │
-      ▼                                     ▼
-[Drift Detector] ──► [Alertmanager] ──► Alert!
-      │
-      ├── PSI (data drift — distribution shift)
-      ├── KS test (statistical distribution test)
-      ├── Accuracy monitor (concept drift)
-      ├── Evidently HTML reports
-      └── SHAP comparison (what changed?)
-```
+No install. No login. Works in the browser.
 
-## Key Results
+---
+
+## Results
 
 ### Accuracy Collapse Under Drift
 ![Accuracy Collapse](reports/figures/accuracy_collapse.png)
 
-The model maintains ~82% accuracy during normal operation (batches 1–50),
-degrades as data distributions shift (batches 51–100), then collapses
-when the feature-label relationship changes (batches 101–150).
+The model holds at **~82% accuracy** during normal operation (batches 1–50).
+As feature distributions shift (batches 51–100), accuracy begins to erode.
+When the feature-label relationship breaks (batches 101–150), accuracy **collapses to ~61%** —
+a 21-point drop that PSI alone would never catch.
+
+### PSI Timeline — What PSI Sees vs What It Misses
+![PSI Timeline](reports/figures/psi_timeline.png)
+
+PSI rises cleanly during data drift and crosses the 0.2 alert threshold.
+During concept drift (batches 101–150), **PSI stays flat** — the data looks normal
+but the model is completely wrong. This is why accuracy monitoring must run alongside PSI.
+
+### SHAP Feature Importance Under Drift
+![SHAP Comparison](reports/figures/shap_drift_comparison.png)
+
+`PAY_0` (most recent payment status) dominates baseline importance.
+After drift, `LIMIT_BAL` and bill amount features surge — they are carrying
+the distribution shift, and the model is now leaning on them incorrectly.
+
+---
+
+## How Drift Is Detected
 
 ### PSI Formula
-**Population Stability Index** measures distribution shift:
 ```
 PSI = Σ (actual_% − expected_%) × ln(actual_% / expected_%)
 ```
 
-| PSI Value   | Interpretation                       |
-|-------------|--------------------------------------|
-| < 0.1       | No significant shift — model is safe |
-| 0.1 – 0.2   | Moderate shift — monitor closely     |
-| > 0.2       | Significant shift — **retrain!**     |
+| PSI Value   | Status        | Action                        |
+|-------------|---------------|-------------------------------|
+| < 0.1       | Normal        | No action needed              |
+| 0.1 – 0.2   | Moderate      | Monitor closely               |
+| > 0.2       | Significant   | Investigate and retrain       |
 
 ### Data Drift vs Concept Drift
-| Type          | What Changes              | Detection Method    | Example                                 |
-|---------------|---------------------------|---------------------|-----------------------------------------|
-| Data Drift    | Feature distributions     | PSI, KS test        | Average credit limit rises from 167K→250K |
-| Concept Drift | Feature-label relationship | Accuracy monitoring | Same income → different default rates   |
 
-**Key insight:** PSI catches data drift but is *blind* to concept drift.
-You need accuracy monitoring running in parallel.
+| Type          | What Changes               | How Detected        | PSI Catches It? |
+|---------------|----------------------------|---------------------|-----------------|
+| Data Drift    | Feature distributions shift | PSI + KS test      | Yes             |
+| Concept Drift | Feature-label relationship  | Accuracy monitoring | No — blind spot |
 
-### SHAP Under Drift (B2 tie-in)
-![SHAP Comparison](reports/figures/shap_drift_comparison.png)
+This distinction is the core lesson of this project. **You need both.**
 
-SHAP reveals *which features* drove the change — not just that drift happened.
-`PAY_0` (recent payment status) consistently dominates when distributions shift.
+---
 
-### PSI Timeline
-![PSI Timeline](reports/figures/psi_timeline.png)
+## System Architecture
 
-Note: PSI rises during data drift (batches 51–100) but stays flat during
-concept drift (batches 101–150). This demonstrates why accuracy monitoring
-is required alongside PSI.
-
-## Docker Compose Stack
 ```
-4 services:
-├── app           — FastAPI + Prometheus /metrics endpoint
-├── prometheus    — scrapes every 15s, stores PSI time-series
-├── grafana       — pre-provisioned dashboard (PSI gauge + accuracy)
-└── alertmanager  — fires alert when PSI > 0.2
+                         ┌─────────────────────┐
+  Incoming Requests ───► │   FastAPI REST API   │ ──► /metrics (Prometheus)
+                         │   (rate-limited,     │
+                         │    CORS, logging)    │
+                         └────────┬────────────┘
+                                  │
+                    ┌─────────────▼──────────────┐
+                    │      Drift Detector         │
+                    │                             │
+                    │  ┌─────────┐ ┌──────────┐  │
+                    │  │   PSI   │ │ KS Test  │  │
+                    │  └────┬────┘ └────┬─────┘  │
+                    │       │           │         │
+                    │  ┌────▼───────────▼──────┐  │
+                    │  │  Accuracy Monitor     │  │
+                    │  │  (concept drift)      │  │
+                    │  └──────────┬────────────┘  │
+                    │             │               │
+                    │  ┌──────────▼────────────┐  │
+                    │  │  SHAP Comparison      │  │
+                    │  │  (what changed?)      │  │
+                    │  └──────────┬────────────┘  │
+                    │             │               │
+                    │  ┌──────────▼────────────┐  │
+                    │  │  Evidently HTML Report│  │
+                    │  └───────────────────────┘  │
+                    └─────────────┬───────────────┘
+                                  │
+          ┌───────────────────────┼───────────────────────┐
+          │                       │                       │
+   ┌──────▼──────┐       ┌────────▼───────┐     ┌────────▼──────┐
+   │ Prometheus  │       │    Grafana     │     │ Alertmanager  │
+   │ (scrapes    │──────►│ (6-panel dash) │     │ PSI > 0.2     │
+   │  every 15s) │       │                │     │ → fires alert │
+   └─────────────┘       └────────────────┘     └───────────────┘
 ```
+
+---
+
+## Docker Compose Stack (Local)
+
+```bash
+make docker-up   # starts all 4 services
+```
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  Service        Port    Purpose                          │
+├─────────────────────────────────────────────────────────┤
+│  app (FastAPI)  :8000   REST API + /metrics endpoint     │
+│  prometheus     :9090   Scrapes metrics every 15s        │
+│  grafana        :3000   Pre-provisioned 6-panel dash     │
+│  alertmanager   :9093   PSI > 0.2 triggers alert         │
+└─────────────────────────────────────────────────────────┘
+```
+
+Grafana dashboard auto-provisions on startup — no manual setup needed.
+
+---
 
 ## Quick Start
+
 ```bash
-make install        # pip install requirements
-make train          # train model + save stats + SHAP baseline
-make simulate       # generate drift plots (reports/figures/)
-make serve          # FastAPI on :8000
-make dashboard      # Streamlit on :8501
-make docker-up      # full stack (FastAPI + Prometheus + Grafana + Alertmanager)
+# 1. Install
+make install
+
+# 2. Train model + compute training stats + SHAP baseline
+make train
+
+# 3. Generate drift simulation plots
+make simulate
+
+# 4. Run locally
+make serve        # FastAPI on :8000
+make dashboard    # Streamlit on :8501
+make docker-up    # full stack (FastAPI + Prometheus + Grafana + Alertmanager)
 ```
 
-API endpoints:
-- `GET  /health`              — health check
-- `POST /api/v1/predict`      — single prediction
-- `POST /api/v1/predict_batch`— batch prediction
-- `GET  /api/v1/drift_report` — cached drift report (60s TTL)
-- `GET  /metrics`             — Prometheus scrape endpoint
+### API Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/health` | Health check |
+| POST | `/api/v1/predict` | Single prediction |
+| POST | `/api/v1/predict_batch` | Batch predictions |
+| GET | `/api/v1/drift_report` | Cached drift report (60s TTL) |
+| GET | `/metrics` | Prometheus scrape endpoint |
+
+---
 
 ## Tech Stack
-| Tool | Role |
-|------|------|
-| scikit-learn | Random Forest model |
-| FastAPI + uvicorn | REST API |
-| Prometheus | Time-series metrics collection |
-| Grafana | Dashboard visualisation |
-| Alertmanager | PSI threshold alerting |
-| Evidently | HTML drift reports |
-| Streamlit | Interactive dashboard |
-| SHAP | Feature importance under drift |
-| pandera | Runtime data validation |
-| Docker Compose | 4-service orchestration |
-| MLflow | Experiment tracking |
+
+| Tool | Version | Role |
+|------|---------|------|
+| scikit-learn | 1.7.2 | Random Forest model (UCI Credit Default, 30K samples) |
+| FastAPI + uvicorn | 0.135 | Production REST API with rate limiting + CORS |
+| Prometheus | — | Pull-based metrics scraping every 15s |
+| Grafana | — | Pre-provisioned 6-panel monitoring dashboard |
+| Alertmanager | — | PSI threshold alerting with webhook integration |
+| Evidently | 0.7.21 | Interactive HTML drift reports (per-feature plots) |
+| Streamlit | 1.56 | 3-tab interactive dashboard (monitor / analysis / education) |
+| SHAP | 0.49.1 | Feature importance comparison: baseline vs drifted |
+| pandera | 0.30.1 | Runtime schema validation of training stats |
+| Docker Compose | — | 4-service orchestration, single-command startup |
+| MLflow | 3.10.1 | Experiment tracking (metrics, params, artifacts) |
+| slowapi | 0.1.9 | FastAPI rate limiting (120 req/min) |
+| Gradio | 6.11.0 | HF Space demo (3-tab UI, live simulation) |
+
+---
 
 ## Project Structure
+
 ```
-B5-Drift-Monitor/
-├── config/config.yaml          # single source of truth for all hyperparams
+RealTime-ML-Drift-Monitoring/
+│
+├── config/
+│   └── config.yaml              # Single source of truth — all hyperparams
+│
 ├── src/
-│   ├── api/app.py              # FastAPI routes + rate limiting
-│   ├── dashboard/streamlit_app.py
-│   ├── data/                   # dataset loading + pandera schemas
-│   ├── model/                  # train.py + predict.py
+│   ├── api/
+│   │   └── app.py               # FastAPI: 5 endpoints, rate limiting, CORS, lifespan
+│   ├── dashboard/
+│   │   └── streamlit_app.py     # 3-tab Streamlit dashboard
+│   ├── data/
+│   │   ├── dataset.py           # UCI dataset loading + training stats
+│   │   ├── schemas.py           # Pydantic v2 + pandera schemas
+│   │   └── validation.py        # pandera validation entry point
+│   ├── model/
+│   │   ├── train.py             # Train RF + save stats + SHAP baseline
+│   │   └── predict.py           # ModelServer with thread-safe predict
 │   └── monitoring/
-│       ├── drift_detector.py   # PSI + KS + Evidently
-│       ├── drift_simulator.py  # 150-batch simulation engine
-│       ├── metrics.py          # Prometheus metrics definitions
-│       └── shap_drift.py       # SHAP baseline vs drifted comparison
-├── hf_space/                   # self-contained Gradio demo
-│   ├── app.py
-│   └── requirements.txt
-├── tests/                      # 92 tests, 75% coverage
+│       ├── drift_detector.py    # PSI + KS + Evidently + TTL cache
+│       ├── drift_simulator.py   # 150-batch simulation engine + 3 plots
+│       ├── metrics.py           # Prometheus Gauge / Counter / Histogram
+│       └── shap_drift.py        # SHAP baseline vs drifted comparison
+│
+├── hf_space/
+│   ├── app.py                   # Self-contained Gradio demo (zero src/ imports)
+│   └── requirements.txt         # 9 pinned dependencies
+│
+├── tests/                       # 92 tests — 75% coverage
+│   ├── test_api.py
+│   ├── test_drift_detector.py
+│   ├── test_drift_simulator.py
+│   ├── test_shap_drift.py
+│   └── ...
+│
+├── models/
+│   ├── random_forest.pkl        # Trained model
+│   ├── training_stats.json      # Per-feature mean/std/min/max
+│   └── shap_baseline.json       # Baseline SHAP importances
+│
+├── reports/figures/             # Generated drift plots
+│   ├── accuracy_collapse.png
+│   ├── psi_timeline.png
+│   └── shap_drift_comparison.png
+│
+├── prometheus/                  # Scrape config + alert rules
+├── grafana/                     # Datasource + dashboard provisioning
+├── alertmanager/                # Routing config
 ├── docker-compose.yml
-├── prometheus/
-├── grafana/
-├── alertmanager/
+├── Dockerfile
 └── Makefile
 ```
 
-## Part of a 5-Project ML Portfolio
-| Project | What It Teaches |
-|---------|----------------|
-| B1 | HuggingFace Fine-Tuning + Production FastAPI |
-| B2 | XGBoost + SHAP Explainability Dashboard |
-| B3 | PyTorch LSTM Time Series Forecasting |
-| B4 | Semantic Search with FAISS + Hybrid Search |
-| **B5** | **Real-Time ML Monitoring + Drift Detection** |
+---
+
+## Part of a 5-Project ML Engineering Portfolio
+
+| # | Project | Core Skills |
+|---|---------|-------------|
+| B1 | HuggingFace Fine-Tuning | Transfer learning, LoRA, production FastAPI |
+| B2 | XGBoost + SHAP | Gradient boosting, explainability dashboard |
+| B3 | PyTorch LSTM | Time series, custom training loop, early stopping |
+| B4 | Semantic Search + FAISS | Embeddings, vector search, hybrid BM25 + dense |
+| **B5** | **Real-Time ML Monitoring** | **Drift detection, Prometheus, Grafana, Alertmanager** |
+
+---
+
+<div align="center">
+
+**[Live Demo](https://huggingface.co/spaces/Priyrajsinh/RealTime-ML-Drift-Monitoring)** · Built with Python 3.10
+
+</div>
