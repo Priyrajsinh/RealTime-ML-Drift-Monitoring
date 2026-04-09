@@ -360,3 +360,40 @@
 - Next step: Deploy to HF Space (push hf_space/ to a new HF repo)
 
 ---
+
+## Day 6 (addendum) — 2026-04-09 — Download buttons: Evidently HTML + CSV + PNG
+> Project: B5-Drift-Monitor
+
+### What was done
+- Added `st.download_button` for Evidently HTML report in Streamlit Tab 2 (6 lines).
+- Added `gr.File` CSV download (leaderboard data) in HF Space Tab 2.
+- Added `gr.File` PNG download (accuracy collapse chart) in HF Space Tab 2.
+- Wrote temp files via `tempfile.NamedTemporaryFile` and passed paths to Gradio `gr.File`.
+- All 5 CI gates green; pushed 2 separate commits to GitHub for contribution history.
+
+### Why it was done
+- Evidently HTML is self-contained — recruiters can download and view it offline with no server.
+- CSV lets anyone analyse feature-level drift data in Excel/Pandas.
+- PNG lets anyone embed the accuracy collapse chart in presentations or reports.
+
+### How it was done
+- Streamlit: `st.download_button(data=html_content.encode("utf-8"), mime="text/html")` — one call.
+- Gradio: `tempfile.NamedTemporaryFile(delete=False, suffix=".csv")` → write CSV → return path → `gr.File` renders a download link automatically.
+- `fig.savefig(png_tmp.name, dpi=150)` saves the matplotlib figure directly to the temp PNG.
+
+### Why this tool / library — not alternatives
+| Tool Used | Why This | Rejected Alternative | Why Not |
+|-----------|----------|---------------------|---------|
+| st.download_button | Native Streamlit, no JS needed | base64 href hack | Hacky, not idiomatic, breaks on large files |
+| gr.File (output) | Gradio renders download link automatically | gr.DownloadButton | DownloadButton needs static value; gr.File works with dynamic paths |
+| tempfile.NamedTemporaryFile | OS-managed temp path, cross-platform | hardcoded /tmp path | Hardcoded paths fail on Windows; tempfile is portable |
+
+### Definitions (plain English)
+- **NamedTemporaryFile**: A temp file with a real path on disk — unlike BytesIO (in memory), Gradio can serve it as a download.
+- **mime="text/html"**: Tells the browser the file is HTML so it opens correctly instead of downloading as plain text.
+
+### Status
+- [x] Done
+- Next step: Deploy hf_space/ to HF Space (push random_forest.pkl + app.py)
+
+---
