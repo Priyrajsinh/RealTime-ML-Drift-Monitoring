@@ -358,6 +358,12 @@ def tab_analysis():
             with open(_REPORT_PATH, encoding="utf-8") as fh:
                 html_content = fh.read()
             st.components.v1.html(html_content, height=600, scrolling=True)
+            st.download_button(
+                label="Download Evidently Report (HTML)",
+                data=html_content.encode("utf-8"),
+                file_name="evidently_drift_report.html",
+                mime="text/html",
+            )
         else:
             st.info(
                 "No Evidently report found. Run the API drift_report endpoint "
