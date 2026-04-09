@@ -58,3 +58,8 @@ class HealthResponse(BaseModel):
     accuracy_rolling: float
     uptime_seconds: float
     memory_mb: float
+
+
+class AlertWebhookResponse(BaseModel):
+    status: str
+    alerts_received: int

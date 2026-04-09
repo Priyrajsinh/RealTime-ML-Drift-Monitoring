@@ -1,0 +1,20 @@
+groups:
+  - name: drift_alerts
+    rules:
+      - alert: DataDriftDetected
+        expr: current_psi_max > 0.2
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Data drift detected — PSI > 0.2"
+          description: "Maximum PSI across features is {{ $value }}. Investigate feature distributions and consider model retraining."
+
+      - alert: AccuracyDegraded
+        expr: model_accuracy_rolling < 0.65
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Model accuracy below 65%"
+          description: "Rolling accuracy is {{ $value }}. Possible concept drift — model retraining required."

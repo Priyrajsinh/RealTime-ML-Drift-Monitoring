@@ -18,6 +18,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
 from src.data.schemas import (
+    AlertWebhookResponse,
     BatchPredictRequest,
     BatchPredictResponse,
     DriftReport,
@@ -47,6 +48,8 @@ with open("config/config.yaml") as _fh:
 DRIFT_REPORT_PATH = "reports/drift/latest_report.html"
 _ROLLING_WINDOW: int = int(_config["monitoring"]["rolling_window"])
 
+MAX_STORED_ALERTS = 50
+
 _state: dict[str, object] = {
     "model_server": None,
     "drift_detector": None,
@@ -55,6 +58,7 @@ _state: dict[str, object] = {
     "n_predictions": 0,
     "n_drift_events": 0,
     "rolling_accuracy": 1.0,
+    "alerts": deque(maxlen=MAX_STORED_ALERTS),
 }
 
 limiter = Limiter(key_func=get_remote_address)
@@ -286,3 +290,40 @@ async def drift_report_html() -> FileResponse:
             ),
         )
     return FileResponse(DRIFT_REPORT_PATH, media_type="text/html")
+
+
+@app.post(
+    "/api/v1/alert_webhook",
+    response_model=AlertWebhookResponse,
+    tags=["monitoring"],
+)
+async def alert_webhook(request: Request) -> AlertWebhookResponse:
+    """Receive Alertmanager webhook payloads and log them."""
+    payload = await request.json()
+    alerts = payload.get("alerts", [])
+    alert_store: deque = _state["alerts"]  # type: ignore[assignment]
+    for alert in alerts:
+        entry = {
+            "alertname": alert.get("labels", {}).get("alertname", "unknown"),
+            "status": alert.get("status", "unknown"),
+            "severity": alert.get("labels", {}).get("severity", "unknown"),
+            "summary": alert.get("annotations", {}).get("summary", ""),
+            "timestamp": alert.get("startsAt", ""),
+        }
+        alert_store.append(entry)
+        logger.info(
+            "alert_received",
+            extra={
+                "alertname": entry["alertname"],
+                "status": entry["status"],
+                "severity": entry["severity"],
+            },
+        )
+    return AlertWebhookResponse(status="ok", alerts_received=len(alerts))
+
+
+@app.get("/api/v1/alerts", tags=["monitoring"])
+async def get_alerts() -> list:
+    """Return stored alerts for dashboard display."""
+    alert_store: deque = _state["alerts"]  # type: ignore[assignment]
+    return list(alert_store)

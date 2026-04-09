@@ -1,0 +1,15 @@
+global:
+  resolve_timeout: 5m
+
+route:
+  group_by: ["alertname"]
+  group_wait: 10s
+  group_interval: 10s
+  repeat_interval: 1h
+  receiver: "drift-logger"
+
+receivers:
+  - name: "drift-logger"
+    webhook_configs:
+      - url: "http://app:8000/api/v1/alert_webhook"
+        send_resolved: true

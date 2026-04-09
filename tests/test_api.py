@@ -64,6 +64,7 @@ def mock_app_state():
     _state["n_drift_events"] = 0
     _state["rolling_accuracy"] = 1.0
     _state["prediction_buffer"] = deque(maxlen=500)
+    _state["alerts"] = deque(maxlen=50)
 
     yield mock_server, mock_detector
 
@@ -215,3 +216,70 @@ async def test_rate_limit_headers_present(client):
     resp = await client.post("/api/v1/predict", json={"features": _VALID_FEATURES})
     # slowapi injects X-RateLimit-* headers
     assert resp.status_code == 200
+
+
+# --- POST /api/v1/alert_webhook ---
+
+
+async def test_alert_webhook_receives_alerts(client):
+    payload = {
+        "alerts": [
+            {
+                "status": "firing",
+                "labels": {"alertname": "DataDriftDetected", "severity": "warning"},
+                "annotations": {"summary": "PSI > 0.2"},
+                "startsAt": "2026-04-09T10:00:00Z",
+            }
+        ]
+    }
+    resp = await client.post("/api/v1/alert_webhook", json=payload)
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["status"] == "ok"
+    assert data["alerts_received"] == 1
+
+
+async def test_alert_webhook_empty_alerts(client):
+    payload = {"alerts": []}
+    resp = await client.post("/api/v1/alert_webhook", json=payload)
+    assert resp.status_code == 200
+    assert resp.json()["alerts_received"] == 0
+
+
+async def test_alert_webhook_stores_alerts(client):
+    payload = {
+        "alerts": [
+            {
+                "status": "firing",
+                "labels": {"alertname": "AccuracyDegraded", "severity": "critical"},
+                "annotations": {"summary": "Accuracy < 65%"},
+                "startsAt": "2026-04-09T10:00:00Z",
+            },
+            {
+                "status": "resolved",
+                "labels": {"alertname": "DataDriftDetected", "severity": "warning"},
+                "annotations": {"summary": "PSI normalized"},
+                "startsAt": "2026-04-09T09:00:00Z",
+            },
+        ]
+    }
+    resp = await client.post("/api/v1/alert_webhook", json=payload)
+    assert resp.status_code == 200
+    assert resp.json()["alerts_received"] == 2
+
+    # Verify alerts are stored and retrievable
+    resp2 = await client.get("/api/v1/alerts")
+    assert resp2.status_code == 200
+    alerts = resp2.json()
+    assert len(alerts) >= 2
+    assert alerts[-1]["alertname"] == "DataDriftDetected"
+    assert alerts[-1]["status"] == "resolved"
+
+
+# --- GET /api/v1/alerts ---
+
+
+async def test_get_alerts_empty(client):
+    resp = await client.get("/api/v1/alerts")
+    assert resp.status_code == 200
+    assert resp.json() == []
