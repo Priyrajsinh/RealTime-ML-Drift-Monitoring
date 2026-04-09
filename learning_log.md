@@ -397,3 +397,38 @@
 - Next step: Deploy hf_space/ to HF Space (push random_forest.pkl + app.py)
 
 ---
+
+## Day 6 (addendum 2) — 2026-04-09 — Live Evidently report per user + README overhaul
+> Project: B5-Drift-Monitor
+
+### What was done
+- Changed Evidently HTML from static pre-baked file to live generation per user simulation.
+- `run_simulation()` now collects `X_reference` (normal batches) and `X_current` (drifted batches).
+- Added `generate_evidently_html()` inlined in hf_space/app.py — calls `Report([DataDriftPreset()])`.
+- Added `evidently==0.7.21` to `hf_space/requirements.txt`.
+- Each user gets their own HTML report matching their chosen drift intensity — downloaded via `gr.File`.
+- Overhauled README: badges, full architecture ASCII diagram, results section with all 3 plots, detailed tech table, portfolio table, HF Space link.
+
+### Why it was done
+- Static pre-baked report shows the same drift regardless of what intensity the user chose — misleading.
+- Live generation means PSI values, drifted feature rankings, and distribution plots in the HTML actually match what the user just simulated.
+- README overhaul needed: the old one was too thin for a portfolio project.
+
+### How it was done
+- Collected `X_normal_batches` and `X_drifted_batches` lists during the simulation loop, then `pd.concat()` at the end.
+- `generate_evidently_html()` runs `Report([DataDriftPreset()]).run(reference_data, current_data)` and saves to a `NamedTemporaryFile`.
+- The temp file path is returned as the 13th output of `simulate()` and received by `gr.File(label="Evidently Drift Report (HTML)")`.
+- README uses GitHub-flavored markdown badges via shields.io, centered with `<div align="center">`.
+
+### Why this tool / library — not alternatives
+| Tool Used | Why This | Rejected Alternative | Why Not |
+|-----------|----------|---------------------|---------|
+| Live Evidently generation | Report matches user's simulation exactly | Static pre-baked HTML | Shows wrong PSI values for different intensities |
+| evidently==0.7.21 | DataDriftPreset API is stable, matches main repo version | Latest evidently | Version mismatch with main requirements.txt |
+| shields.io badges | Standard GitHub badge style, renders on GitHub/HF | Custom HTML badges | Don't render on plain GitHub markdown |
+
+### Status
+- [x] Done
+- Next step: Update HF Space repo with new app.py + requirements.txt
+
+---
