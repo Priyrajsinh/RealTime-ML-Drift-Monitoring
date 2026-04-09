@@ -20,3 +20,8 @@ hf_space/*.pkl
 hf_space/*.json
 hf_space/evidently_report.html
 reports/drift/*.html
+
+# Local dev files
+CLAUDE.md
+learning_log.md
+.claude/
